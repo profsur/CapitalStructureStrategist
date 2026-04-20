@@ -15,7 +15,7 @@ st.markdown("Analyze how cash-flow life stages dictate leverage capacity and str
 # --- 2. DATA LOADING & PREPROCESSING ---
 @st.cache_data
 def load_data():
-    df = pd.read_stata('sp401nf24y_furtherEd_oldCLS_modifiedDickinson02.dta')
+    df = pd.read_stata('sp401nf24y_furtherEd_oldCLS.dta')
     df = df.sort_values(by=['companyname', 'year'])
     df['leverage_lag1'] = df.groupby('companyname')['leverage'].shift(1)
     df['corplifestage'] = df['corplifestage'].astype(str)
