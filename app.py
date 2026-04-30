@@ -27,10 +27,32 @@ def load_data():
     if 'leverage' in df.columns:
         df['leverage_lag1'] = df.groupby('companyname')['leverage'].shift(1)
     
-    # Clean up categories for UI
+    # Dickinson Mapping: 1=Startup, 2=Growth, 3=Maturity, 4=Shakeout1, 5=Shakeout2, 6=Shakeout3, 7=Decline, 8=Decay
+    stage_mapping = {
+        1.0: "Startup",
+        2.0: "Growth",
+        3.0: "Maturity",
+        4.0: "Shakeout1",
+        5.0: "Shakeout2",
+        6.0: "Shakeout3",
+        7.0: "Decline",
+        8.0: "Decay"
+    }
+    
+    # Clean up categories for UI (Original)
     if 'corplifestage' in df.columns:
-        df['corplifestage'] = df['corplifestage'].astype(str)
-        
+        if pd.api.types.is_numeric_dtype(df['corplifestage']):
+            df['corplifestage'] = df['corplifestage'].map(stage_mapping).fillna(df['corplifestage'].astype(str))
+        else:
+            df['corplifestage'] = df['corplifestage'].astype(str)
+
+    # Clean up categories for UI (Refined Alternative)
+    if 'lifestageNdecline' in df.columns:
+        if pd.api.types.is_numeric_dtype(df['lifestageNdecline']):
+            df['lifestageNdecline'] = df['lifestageNdecline'].map(stage_mapping).fillna(df['lifestageNdecline'].astype(str))
+        else:
+            df['lifestageNdecline'] = df['lifestageNdecline'].astype(str)
+            
     return df
 
 df = load_data()
@@ -84,7 +106,7 @@ if latest_data is not None and 'leverage' in df.columns:
     # --- SECTION 1: THE DIAGNOSTIC ---
     st.header(f"1. Life-Stage Diagnostic: {selected_company} ({latest_year})")
     cols = st.columns(4)
-    cols[0].metric("Current Life Stage", latest_data['corplifestage'])
+    cols[0].metric("Current Life Stage", latest_data.get('corplifestage', 'N/A'))
     cols[1].metric("Operating CF (NCFO)", f"{latest_data['ncfo']:.2f}" if 'ncfo' in latest_data and pd.notnull(latest_data['ncfo']) else "N/A")
     cols[2].metric("Investing CF (NCFI)", f"{latest_data['ncfi']:.2f}" if 'ncfi' in latest_data and pd.notnull(latest_data['ncfi']) else "N/A")
     cols[3].metric("Financing CF (NCFF)", f"{latest_data['ncff']:.2f}" if 'ncff' in latest_data and pd.notnull(latest_data['ncff']) else "N/A")
@@ -97,7 +119,7 @@ if latest_data is not None and 'leverage' in df.columns:
                        title=f"Leverage Distribution ({selected_industry})",
                        color="corplifestage")
     if pd.notnull(latest_data['leverage']):
-        fig_bench.add_scatter(x=[latest_data['corplifestage']], y=[latest_data['leverage']], 
+        fig_bench.add_scatter(x=[latest_data.get('corplifestage', 'Unknown')], y=[latest_data['leverage']], 
                               mode='markers', marker=dict(color='black', size=15, symbol='star'),
                               name=f"{selected_company}")
     st.plotly_chart(fig_bench, use_container_width=True)
@@ -146,14 +168,24 @@ if latest_data is not None and 'leverage' in df.columns:
     
     reg_vars = st.sidebar.multiselect("Select Independent Variables (X):", valid_x_cols, default=default_selection)
     
-    # The toggle to simulate "i.corplifestage"
-    include_stage_dummies = st.sidebar.checkbox("Include Life-Stage Dummies (i.corplifestage)", value=True)
+    # The toggle to simulate "i.corplifestage" vs "i.lifestageNdecline"
+    stage_dummy_option = st.sidebar.radio(
+        "Life-Stage Dummies to Include:",
+        options=["Original (corplifestage)", "Refined Decline/Decay (lifestageNdecline)", "None"]
+    )
     
     if len(reg_vars) > 0:
         # Prepare columns to keep
         cols_to_keep = ['companyname', 'year', 'leverage'] + reg_vars
-        if include_stage_dummies and 'corplifestage' in filtered_df.columns:
+        
+        if stage_dummy_option == "Original (corplifestage)" and 'corplifestage' in filtered_df.columns:
             cols_to_keep.append('corplifestage')
+            target_categorical = 'corplifestage'
+        elif stage_dummy_option == "Refined Decline/Decay (lifestageNdecline)" and 'lifestageNdecline' in filtered_df.columns:
+            cols_to_keep.append('lifestageNdecline')
+            target_categorical = 'lifestageNdecline'
+        else:
+            target_categorical = None
             
         reg_df = filtered_df[cols_to_keep].dropna()
         
@@ -169,9 +201,10 @@ if latest_data is not None and 'leverage' in df.columns:
         Y = panel_data['leverage']
         X_inputs = panel_data[reg_vars].copy()
         
-        # Dynamically create dummy variables for Life Stage (replicating i.corplifestage)
-        if include_stage_dummies and 'corplifestage' in panel_data.columns:
-            dummies = pd.get_dummies(panel_data['corplifestage'], drop_first=True, dtype=float, prefix="Stage")
+        # Dynamically create dummy variables based on user selection
+        if target_categorical is not None and target_categorical in panel_data.columns:
+            prefix_name = "Stage" if target_categorical == 'corplifestage' else "Refined"
+            dummies = pd.get_dummies(panel_data[target_categorical], drop_first=True, dtype=float, prefix=prefix_name)
             X_inputs = pd.concat([X_inputs, dummies], axis=1)
             
         X = sm.add_constant(X_inputs)
@@ -224,7 +257,8 @@ if latest_data is not None and 'leverage' in df.columns:
     else:
         st.info("👈 Select at least one independent variable in the sidebar to run the Quant Engine.")
 else:
-    # --- SECTION 7: RESEARCH & INSIGHTS ---
+    st.error("Missing required data columns (like 'leverage' or 'companyname'). Please check your dataset.")
+#---SECTION 7: Research & Insights---
     st.header("7. Research & Insights")
     st.markdown("Download the foundational white paper summarizing the econometric findings of the 25-year Indian corporate panel study.")
     
