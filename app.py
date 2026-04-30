@@ -224,4 +224,20 @@ if latest_data is not None and 'leverage' in df.columns:
     else:
         st.info("👈 Select at least one independent variable in the sidebar to run the Quant Engine.")
 else:
+    # --- SECTION 7: RESEARCH & INSIGHTS ---
+    st.header("7. Research & Insights")
+    st.markdown("Download the foundational white paper summarizing the econometric findings of the 25-year Indian corporate panel study.")
+    
+    try:
+        with open("Capital_Structure_White_Paper.pdf", "rb") as pdf_file:
+            PDFbyte = pdf_file.read()
+
+        st.download_button(label="📥 Download White Paper (PDF)",
+                           data=PDFbyte,
+                           file_name="Life_Cycle_Leverage_Playbook.pdf",
+                           mime='application/octet-stream')
+    except FileNotFoundError:
+        st.warning("White Paper PDF is currently being generated. Please check back shortly.")
+
+else:
     st.error("Missing required data columns (like 'leverage' or 'companyname'). Please check your dataset.")
