@@ -258,7 +258,7 @@ if latest_data is not None and 'leverage' in df.columns:
         st.info("👈 Select at least one independent variable in the sidebar to run the Quant Engine.")
 else:
     st.error("Missing required data columns (like 'leverage' or 'companyname'). Please check your dataset.")
-#---SECTION 7: Research & Insights---
+    # --- SECTION 7: RESEARCH & INSIGHTS ---
     st.header("7. Research & Insights")
     st.markdown("Download the foundational white paper summarizing the econometric findings of the 25-year Indian corporate panel study.")
     
@@ -273,5 +273,5 @@ else:
     except FileNotFoundError:
         st.warning("White Paper PDF is currently being generated. Please check back shortly.")
 
-else:
-    st.error("Missing required data columns (like 'leverage' or 'companyname'). Please check your dataset.")
+    else:
+        st.error("Missing required data columns (like 'leverage' or 'companyname'). Please check your dataset.")
